@@ -1,0 +1,33 @@
+# Orchestration
+langgraph>=1.2
+langgraph-checkpoint-postgres>=3.0
+langgraph-checkpoint-sqlite>=3.0
+langchain-core>=1.6
+
+# LLM providers
+langchain-openai>=1.7
+langchain-anthropic>=1.7
+
+# Memory
+sqlalchemy>=2.1
+psycopg[binary]>=3.2
+chromadb>=1.5
+
+# Queue
+celery>=5.6
+redis>=8
+
+# API + frontend glue
+fastapi>=0.156
+uvicorn[standard]>=0.54
+pydantic>=2.14
+pydantic-settings>=2.16
+httpx>=0.28
+requests>=2.32
+
+# Frontend (Streamlit)
+streamlit>=1.50
+
+# Testing
+pytest>=9
+pytest-asyncio>=1.4

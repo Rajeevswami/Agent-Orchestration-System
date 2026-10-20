@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agent Orchestration Console</title>
+<style>
+  :root {
+    --bg: #0b1020; --panel: #121a2f; --panel2: #182338; --border: #24304d;
+    --text: #e6ecff; --muted: #8fa0c2; --accent: #5b8cff; --ok: #2fbf71;
+    --warn: #f5a623; --danger: #e2555f; --chip: #22304e;
+    font-size: 15px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: radial-gradient(1200px 600px at 20% -10%, #1a2a52 0%, var(--bg) 55%);
+    color: var(--text); font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    display: flex; align-items: center; gap: 14px; padding: 16px 26px;
+    border-bottom: 1px solid var(--border); backdrop-filter: blur(6px);
+    position: sticky; top: 0; background: rgba(11, 16, 32, 0.85); z-index: 10;
+  }
+  header h1 { font-size: 1.15rem; margin: 0; letter-spacing: 0.3px; }
+  header .badge {
+    background: var(--chip); color: var(--muted); font-size: 0.72rem;
+    padding: 3px 10px; border-radius: 99px; border: 1px solid var(--border);
+  }
+  header .spacer { flex: 1; }
+  .health { display: flex; gap: 8px; align-items: center; font-size: 0.78rem; color: var(--muted); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .dot.bad { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+
+  main { display: grid; grid-template-columns: 340px 1fr 320px; gap: 16px; padding: 18px 22px; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
+    border: 1px solid var(--border); border-radius: 14px; padding: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  }
+  .panel h2 {
+    margin: 0 0 12px; font-size: 0.82rem; text-transform: uppercase;
+    letter-spacing: 1.4px; color: var(--muted); font-weight: 600;
+  }
+  textarea {
+    width: 100%; min-height: 96px; resize: vertical; border-radius: 10px;
+    border: 1px solid var(--border); background: #0d1426; color: var(--text);
+    padding: 12px; font: inherit; outline: none;
+  }
+  textarea:focus { border-color: var(--accent); }
+  .btn {
+    appearance: none; border: 1px solid var(--border); background: var(--accent);
+    color: white; padding: 10px 16px; border-radius: 10px; cursor: pointer;
+    font-weight: 600; font-size: 0.86rem; transition: transform 0.06s ease, filter 0.15s;
+  }
+  .btn:hover { filter: brightness(1.1); }
+  .btn:active { transform: translateY(1px); }
+  .btn.ghost { background: transparent; color: var(--muted); }
+  .btn.ok { background: var(--ok); }
+  .btn.danger { background: var(--danger); }
+  .btn.warn { background: var(--warn); color: #221703; }
+  .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+
+  .run-item {
+    padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px;
+    margin-bottom: 8px; cursor: pointer; background: #101932; transition: border-color 0.15s;
+  }
+  .run-item:hover, .run-item.active { border-color: var(--accent); }
+  .run-item .task { font-size: 0.86rem; margin-bottom: 6px; overflow: hidden;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .meta { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    font-size: 0.68rem; padding: 2px 9px; border-radius: 99px; background: var(--chip);
+    color: var(--muted); border: 1px solid var(--border); white-space: nowrap;
+  }
+  .chip.running { color: #9ec1ff; border-color: #33507f; }
+  .chip.completed { color: var(--ok); border-color: #245b3e; }
+  .chip.awaiting_human, .chip.queued { color: var(--warn); border-color: #6b5220; }
+  .chip.failed { color: var(--danger); border-color: #6b2b31; }
+
+  .timeline { max-height: 300px; overflow-y: auto; padding-right: 6px; }
+  .event { display: flex; gap: 10px; padding: 7px 2px; border-bottom: 1px dashed #222c47; font-size: 0.82rem; }
+  .event .t { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .event .a { color: var(--accent); min-width: 128px; font-family: ui-monospace, monospace; font-size: 0.74rem; }
+  .event .p { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .answer {
+    white-space: pre-wrap; line-height: 1.55; background: #0d1426;
+    border: 1px solid var(--border); border-radius: 10px; padding: 14px;
+    max-height: 420px; overflow-y: auto; font-size: 0.92rem;
+  }
+  .escalation {
+    border: 1px solid #6b5220; background: linear-gradient(180deg, #241c0c, #2c230f);
+    border-radius: 12px; padding: 14px; margin-bottom: 12px;
+  }
+  .escalation h3 { margin: 0 0 8px; font-size: 0.95rem; color: var(--warn); }
+  .escalation p { margin: 6px 0; font-size: 0.85rem; color: #e8d9b3; }
+  .escalation pre {
+    background: rgba(0,0,0,0.25); padding: 8px; border-radius: 8px; overflow-x: auto;
+    font-size: 0.72rem; color: var(--muted); max-height: 140px;
+  }
+  .mem-hit { padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px;
+    margin-bottom: 8px; font-size: 0.8rem; color: var(--muted); background: #101932; }
+  .mem-hit b { color: var(--text); font-weight: 600; }
+  .muted { color: var(--muted); font-size: 0.82rem; }
+  input[type="text"] {
+    width: 100%; border-radius: 10px; border: 1px solid var(--border);
+    background: #0d1426; color: var(--text); padding: 10px 12px; font: inherit; outline: none;
+  }
+  input[type="text"]:focus { border-color: var(--accent); }
+  .hidden { display: none !important; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #2b3960; border-radius: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🤖 Agent Orchestration Console</h1>
+  <span class="badge" id="versionBadge">v—</span>
+  <span class="badge" id="queueBadge">queue: —</span>
+  <div class="spacer"></div>
+  <div class="health"><div class="dot" id="healthDot"></div><span id="healthText">checking…</span></div>
+</header>
+
+<main>
+  <!-- LEFT: new run + run list -->
+  <section class="panel">
+    <h2>Delegate a task</h2>
+    <textarea id="taskInput" placeholder="e.g. Research the impact of EU AI regulation on small startups and draft a concise briefing with the key numbers."></textarea>
+    <div class="row">
+      <button class="btn" id="runBtn">▶ Run agent team</button>
+      <button class="btn ghost" id="sampleBtn">Try a sample</button>
+      <span class="muted" id="runStatus"></span>
+    </div>
+
+    <h2 style="margin-top:22px">Recent runs</h2>
+    <div id="runList"><div class="muted">Loading…</div></div>
+  </section>
+
+  <!-- CENTER: selected run -->
+  <section class="panel">
+    <h2>Run detail</h2>
+    <div id="runDetail"><div class="muted">Select a run to see its activity, messages and answer.</div></div>
+  </section>
+
+  <!-- RIGHT: escalations + memory -->
+  <section>
+    <div class="panel" style="margin-bottom:16px">
+      <h2>🛑 Human-in-the-loop</h2>
+      <div id="escalationPanel"><div class="muted">No pending escalations.</div></div>
+    </div>
+    <div class="panel">
+      <h2>🧠 Long-term memory</h2>
+      <input type="text" id="memQuery" placeholder="Search semantic memory…" />
+      <div class="row">
+        <button class="btn ghost" id="memBtn">Search</button>
+        <span class="muted" id="memCount"></span>
+      </div>
+      <div id="memResults" style="margin-top:10px"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const SAMPLES = [
+  "Research the impact of EU AI regulation on small startups and draft a concise briefing with the key compliance deadlines.",
+  "We need to send a payment of $2,400 to a vendor by wire transfer today. Draft the approval email and summarize what the finance policy requires first.",
+  "Analyze our Q3 churn numbers (3.1%, 3.4%, 2.9% monthly) versus the 2.5% target, calculate the revenue impact on $1.2M MRR, and recommend two actions."
+];
+let selectedRunId = null;
+let pollTimer = null;
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+async function refreshHealth() {
+  try {
+    const h = await api('/api/health');
+    $('versionBadge').textContent = 'v' + h.version;
+    $('queueBadge').textContent = 'queue: ' + h.queue_mode;
+    const ok = h.checks.database === 'ok';
+    $('healthDot').className = 'dot' + (ok ? '' : ' bad');
+    $('healthText').textContent = h.checks.llm.provider + ' · ' + (h.checks.llm.model || '') + ' · ' + (ok ? 'healthy' : 'degraded');
+  } catch (e) {
+    $('healthDot').className = 'dot bad';
+    $('healthText').textContent = 'API unreachable';
+  }
+}
+
+function fmtTime(iso) {
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function chip(status) {
+  return `<span class="chip ${status}">${status.replace('_', ' ')}</span>`;
+}
+
+async function refreshRuns() {
+  const runs = await api('/api/runs?limit=25');
+  $('runList').innerHTML = runs.length ? runs.map(r => `
+    <div class="run-item ${r.id === selectedRunId ? 'active' : ''}" data-id="${r.id}">
+      <div class="task">${escapeHtml(r.task)}</div>
+      <div class="meta">${chip(r.status)}<span class="chip">${fmtTime(r.created_at)}</span></div>
+    </div>`).join('') : '<div class="muted">No runs yet — delegate one above.</div>';
+  document.querySelectorAll('.run-item').forEach(el =>
+    el.addEventListener('click', () => selectRun(el.dataset.id)));
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function selectRun(id) {
+  selectedRunId = id;
+  await refreshRuns();
+  await refreshRunDetail();
+  await refreshEscalations();
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    await refreshRunDetail(true);
+    await refreshEscalations();
+    await refreshRuns();
+  }, 1500);
+}
+
+async function refreshRunDetail(silent) {
+  if (!selectedRunId) return;
+  let run;
+  try { run = await api('/api/runs/' + selectedRunId); } catch (e) { return; }
+  const events = (run.events || []).slice(-60).map(ev => `
+    <div class="event">
+      <span class="t">${fmtTime(ev.created_at)}</span>
+      <span class="a">${escapeHtml(ev.type)}</span>
+      <span class="p">${escapeHtml(ev.actor)} ${escapeHtml(JSON.stringify(ev.payload).slice(0, 140))}</span>
+    </div>`).join('');
+  const answer = run.final_answer
+    ? `<div class="answer">${escapeHtml(run.final_answer)}</div>`
+    : `<div class="muted">${run.status === 'awaiting_human' ? '⏸ Waiting for a human decision…' : 'Working… no final answer yet.'}</div>`;
+  const notes = (run.output_data && run.output_data.supervisor_notes || []).map(n =>
+    `<div class="event"><span class="p">${escapeHtml(n)}</span></div>`).join('');
+  $('runDetail').innerHTML = `
+    <div class="meta" style="margin-bottom:10px">${chip(run.status)}
+      <span class="chip">id ${run.id.slice(0, 8)}</span>
+      <span class="chip">${escapeHtml(run.provider || '')}</span>
+    </div>
+    <div class="muted" style="margin-bottom:8px">Task: ${escapeHtml(run.task)}</div>
+    <h2>Supervisor log</h2>
+    <div class="timeline" style="max-height:120px;margin-bottom:12px">${notes || '<div class="muted">—</div>'}</div>
+    <h2>Activity timeline</h2>
+    <div class="timeline" style="margin-bottom:14px">${events || '<div class="muted">—</div>'}</div>
+    <h2>Final answer</h2>
+    ${answer}`;
+}
+
+async function refreshEscalations() {
+  let pending = [];
+  try { pending = await api('/api/escalations?status=pending'); } catch (e) {}
+  $('escalationPanel').innerHTML = pending.length ? pending.map(e => `
+    <div class="escalation" data-id="${e.id}">
+      <h3>${e.kind === 'final_review' ? '📝 Final answer review' : '🛑 Decision needed'}</h3>
+      <p><b>${escapeHtml(e.question)}</b></p>
+      <p>${escapeHtml(e.reason)}</p>
+      ${e.context && e.context.draft ? `<pre>${escapeHtml(String(e.context.draft).slice(0, 600))}</pre>` : ''}
+      ${e.context && e.context.task ? `<p class="muted">Task: ${escapeHtml(String(e.context.task).slice(0, 120))}</p>` : ''}
+      <div class="row">
+        <button class="btn ok" data-act="approve">✔ Approve</button>
+        <button class="btn danger" data-act="reject">✖ Reject</button>
+        <button class="btn warn" data-act="modify">✎ Modify</button>
+      </div>
+      <input type="text" placeholder="Guidance / comment (optional)" data-comment />
+    </div>`).join('') : '<div class="muted">No pending escalations. 🎉</div>';
+
+  document.querySelectorAll('.escalation button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const card = btn.closest('.escalation');
+      const id = card.dataset.id;
+      const comment = card.querySelector('[data-comment]').value;
+      let body = { decision: btn.dataset.act, comment };
+      if (btn.dataset.act === 'modify') {
+        const modified = prompt('Enter modified answer / guidance:');
+        if (modified === null) return;
+        body.comment = modified;
+        body.modified_answer = modified;
+      }
+      btn.disabled = true;
+      try {
+        await api('/api/escalations/' + id + '/resolve', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+        });
+        await refreshEscalations();
+        await refreshRunDetail();
+        await refreshRuns();
+      } catch (e) {
+        alert('Resolve failed: ' + e.message);
+        btn.disabled = false;
+      }
+    });
+  });
+}
+
+async function runTask() {
+  const task = $('taskInput').value.trim();
+  if (!task) return;
+  $('runBtn').disabled = true;
+  $('runStatus').textContent = 'dispatching…';
+  try {
+    const run = await api('/api/runs', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task, mode: 'async' })
+    });
+    $('runStatus').textContent = 'run ' + run.id.slice(0, 8) + ' started';
+    $('taskInput').value = '';
+    await selectRun(run.id);
+  } catch (e) {
+    $('runStatus').textContent = 'error: ' + e.message;
+  } finally {
+    $('runBtn').disabled = false;
+    setTimeout(() => $('runStatus').textContent = '', 4000);
+  }
+}
+
+async function searchMemory() {
+  const q = $('memQuery').value.trim();
+  if (!q) return;
+  const res = await api('/api/memory/search?q=' + encodeURIComponent(q) + '&k=5');
+  $('memCount').textContent = res.hits.length + ' hit(s)';
+  $('memResults').innerHTML = res.hits.map(h =>
+    `<div class="mem-hit"><b>${escapeHtml((h.metadata && h.metadata.kind) || 'memory')}</b> · score ${h.score}<br>${escapeHtml(h.text.slice(0, 220))}</div>`
+  ).join('') || '<div class="muted">No memories matched.</div>';
+}
+
+$('runBtn').addEventListener('click', runTask);
+$('sampleBtn').addEventListener('click', () => {
+  $('taskInput').value = SAMPLES[Math.floor(Math.random() * SAMPLES.length)];
+});
+$('memBtn').addEventListener('click', searchMemory);
+$('memQuery').addEventListener('keydown', e => { if (e.key === 'Enter') searchMemory(); });
+
+refreshHealth();
+refreshRuns();
+refreshEscalations();
+setInterval(refreshHealth, 10000);
+setInterval(refreshEscalations, 5000);
+setInterval(refreshRuns, 4000);
+</script>
+</body>
+</html>
