@@ -12,13 +12,15 @@ import ast
 import datetime as _dt
 import math
 import operator
-from typing import Any, Callable, List
+from typing import TYPE_CHECKING, Any, Callable, List
 
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import BaseTool, tool
 
 from app.memory.vector import MemoryHit
-from app.orchestrator.context import RunContext
+
+if TYPE_CHECKING:  # imported lazily to avoid a package import cycle
+    from app.orchestrator.context import RunContext
 
 # ── Safe calculator ───────────────────────────────────────────────────────────
 
@@ -53,26 +55,34 @@ _SAFE_FUNCS: dict[str, Callable[..., Any]] = {
 
 def safe_eval(expression: str) -> float:
     """Evaluate an arithmetic expression with a strict AST allow-list."""
+    if len(expression) > 500:
+        raise ValueError("Expression too long")
     node = ast.parse(expression, mode="eval").body
     return _eval_node(node)
 
 
-def _eval_node(node: ast.AST) -> float:
+def _eval_node(node: ast.AST, depth: int = 0) -> float:
+    if depth > 32:
+        raise ValueError("Expression too deeply nested")
     if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
         return node.value
     if isinstance(node, ast.BinOp) and type(node.op) in _BIN_OPS:
-        return _BIN_OPS[type(node.op)](_eval_node(node.left), _eval_node(node.right))
+        left = _eval_node(node.left, depth + 1)
+        right = _eval_node(node.right, depth + 1)
+        if isinstance(node.op, ast.Pow) and (abs(right) > 1024 or abs(left) > 1e9):
+            raise ValueError("Power operation out of allowed range")
+        return _BIN_OPS[type(node.op)](left, right)
     if isinstance(node, ast.UnaryOp) and type(node.op) in _UNARY_OPS:
-        return _UNARY_OPS[type(node.op)](_eval_node(node.operand))
+        return _UNARY_OPS[type(node.op)](_eval_node(node.operand, depth + 1))
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
         fn = _SAFE_FUNCS.get(node.func.id)
         if fn is None:
             raise ValueError(f"Function not allowed: {node.func.id}")
-        return fn(*[_eval_node(a) for a in node.args])
+        return fn(*[_eval_node(a, depth + 1) for a in node.args])
     if isinstance(node, ast.Tuple):
-        return tuple(_eval_node(a) for a in node.elts)  # type: ignore[return-value]
+        return tuple(_eval_node(a, depth + 1) for a in node.elts)  # type: ignore[return-value]
     if isinstance(node, ast.List):
-        return [_eval_node(a) for a in node.elts]  # type: ignore[return-value]
+        return [_eval_node(a, depth + 1) for a in node.elts]  # type: ignore[return-value]
     raise ValueError(f"Unsupported expression element: {ast.dump(node)}")
 
 

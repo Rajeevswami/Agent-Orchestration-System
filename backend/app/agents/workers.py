@@ -9,15 +9,17 @@ the supervisor state.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, List
+from typing import TYPE_CHECKING, Any, Callable, List
 
 from langchain_core.messages import AIMessage, BaseMessage, SystemMessage
 
 from app.agents.tools import build_tools, execute_tool_calls
 from app.config import Settings
 from app.llm.prompts import WORKER_CONTEXT, WORKER_MISSIONS, WORKER_SYSTEM
-from app.orchestrator.context import RunContext
 from app.orchestrator.state import OrchestratorState, format_agent_outputs, format_memories
+
+if TYPE_CHECKING:  # imported lazily to avoid a package import cycle
+    from app.orchestrator.context import RunContext
 
 
 @dataclass

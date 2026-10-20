@@ -63,12 +63,13 @@ human decision** that resumes it mid-flight.
 - **📨 Queue** — inline executor for dev, Celery + Redis for production.
 - **🔀 Providers** — OpenAI *and* Anthropic behind one router (per-role model
   overrides), plus a **scripted provider** for offline demos and CI.
-- **🖥 Frontends** — built-in web console (zero-build, served at `/`) and a
-  Streamlit app (`frontend/streamlit_app.py`).
+- **🖥 Frontends** — built-in zero-build web console (at `/`), a **React console**
+  (`frontend-react/`, Vite + TypeScript, served at `/react`), and a Streamlit app
+  (`frontend/streamlit_app.py`).
 - **🔌 REST + SSE API** — create runs, stream activity, resolve escalations,
   search memory (`/api/health`, `/api/runs`, `/api/escalations`, `/api/memory/*`).
-- **🧪 Tested offline** — 28 tests exercise the real graph, real interrupts and
-  real persistence with scripted LLMs (no API keys needed).
+- **🧪 Tested offline** — 36 tests exercise the real graph, real interrupts,
+  real persistence and the HTTP API with scripted LLMs (no API keys needed).
 
 ## Quickstart
 
@@ -111,6 +112,7 @@ Streamlit** — durable checkpointer + durable memory + background workers.
 | Service | URL |
 |---|---|
 | Web console | http://localhost:8000 |
+| React console | http://localhost:8000/react |
 | API docs | http://localhost:8000/docs |
 | Streamlit UI | http://localhost:8501 |
 | ChromaDB | http://localhost:8001 |
@@ -172,8 +174,9 @@ Decisions:
 │   ├── queue/               # Celery app + tasks (Redis broker)
 │   ├── api/                 # FastAPI app + schemas (REST + SSE)
 │   └── static/              # zero-build web console
-├── backend/tests/           # offline pytest suite (scripted LLMs)
+├── backend/tests/           # offline pytest suite (graph + API, scripted LLMs)
 ├── frontend/streamlit_app.py
+├── frontend-react/          # Vite + React + TypeScript console (served at /react)
 ├── docker-compose.yml       # postgres · redis · chroma · api · worker · ui
 └── Makefile
 ```
@@ -211,6 +214,7 @@ All knobs live in `.env` (see `.env.example`). Highlights:
 
 ```bash
 make test                 # full offline suite
+make build-react          # rebuild the React console (optional; prebuilt in Docker)
 cd backend && ../.venv/bin/python -m pytest tests/test_orchestrator.py -q   # graph tests
 python -m app.cli run "task…"        # real run via CLI
 python -m app.cli resume <run_id> approve

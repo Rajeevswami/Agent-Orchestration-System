@@ -2,16 +2,17 @@ PYTHON ?= .venv/bin/python
 PIP ?= .venv/bin/pip
 export PYTHONPATH := backend
 
-.PHONY: help venv install test demo run-api run-worker run-ui up down logs
+.PHONY: help venv install test demo run-api run-worker run-ui build-react up down logs
 
 help:
 	@echo "Agent Orchestration System"
 	@echo "  make install    create venv + install dependencies"
 	@echo "  make test       run the test-suite (offline, no API keys)"
 	@echo "  make demo       scripted end-to-end demo (offline)"
-	@echo "  make run-api    start FastAPI + web console on :8000"
+	@echo "  make run-api    start FastAPI + web consoles on :8000"
 	@echo "  make run-worker start a Celery worker (needs Redis)"
 	@echo "  make run-ui     start the Streamlit frontend on :8501"
+	@echo "  make build-react build the React console (frontend-react/)"
 	@echo "  make up         docker compose up (postgres, redis, chroma, api, worker, ui)"
 	@echo "  make down       docker compose down"
 
@@ -36,6 +37,9 @@ run-worker:
 
 run-ui:
 	.venv/bin/streamlit run frontend/streamlit_app.py
+
+build-react:
+	cd frontend-react && npm install --no-audit --no-fund && npm run build
 
 up:
 	docker compose up --build

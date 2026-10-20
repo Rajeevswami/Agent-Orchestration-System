@@ -17,6 +17,7 @@ import math
 import re
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from app.config import Settings, get_settings
@@ -165,7 +166,7 @@ class VectorMemory:
     ) -> str:
         memory_id = memory_id or uuid.uuid4().hex
         meta = {k: v for k, v in (metadata or {}).items() if v is not None}
-        meta.setdefault("created_at", __import__("datetime").datetime.now().isoformat())
+        meta.setdefault("created_at", datetime.now(timezone.utc).isoformat())
         self._collection.add(ids=[memory_id], documents=[text], metadatas=[meta])
         return memory_id
 

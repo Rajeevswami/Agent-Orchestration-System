@@ -10,7 +10,6 @@ Set ``API_URL`` if the API is not on ``http://localhost:8000``.
 from __future__ import annotations
 
 import os
-import time
 
 import requests
 import streamlit as st

@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
@@ -225,7 +226,6 @@ def create_app(service: RunService | None = None) -> FastAPI:
                 if run is not None and run.status == "awaiting_human" and not events:
                     yield f"data: {json.dumps({'type': 'stream.awaiting_human'})}\n\n"
                     return
-                import time
 
                 time.sleep(0.5)
 
@@ -291,9 +291,18 @@ def create_app(service: RunService | None = None) -> FastAPI:
             for r in service.store.list_memory_records(kind=kind, limit=limit)
         ]
 
-    # ── Web console ─────────────────────────────────────────────────────────
+    # ── Web consoles ─────────────────────────────────────────────────────────
+    # Zero-build console at /console (and / for convenience).
     if STATIC_DIR.exists():
         app.mount("/console", StaticFiles(directory=str(STATIC_DIR), html=True), name="console")
+
+    # React console (production build from frontend-react/, served under /react).
+    react_dist = Path(__file__).resolve().parent.parent.parent.parent / "frontend-react" / "dist"
+    if not react_dist.exists():
+        # Docker layout: /srv/frontend-react/dist
+        react_dist = Path("/srv/frontend-react/dist")
+    if react_dist.exists():
+        app.mount("/react", StaticFiles(directory=str(react_dist), html=True), name="react-console")
 
     @app.get("/")
     def index() -> FileResponse:

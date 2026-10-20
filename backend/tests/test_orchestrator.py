@@ -6,14 +6,8 @@ real LangGraph graph, real tool loop, real interrupts and real persistence.
 
 from __future__ import annotations
 
-from langchain_core.messages import AIMessage
-
 from app.llm.scripted import register_script
 from app.runtime import RunService
-
-
-def _sup(*decisions: str) -> list:
-    return [d if isinstance(d, str) else d for d in decisions]
 
 
 def test_happy_path_delegation_to_finish(service: RunService):
@@ -132,9 +126,10 @@ def test_agent_request_human_tool_escalates(service: RunService):
 
     resumed = service.resume_run(run.id, {"decision": "reject", "comment": "do not email"})
     assert resumed["status"] == "completed"
-    # Rejection guidance is fed back to the team.
+    # Rejection guidance is fed back into the run state / supervisor notes.
     run_obj = service.store.get_run(run.id)
-    assert any("REJECTED" in note for note in [run_obj.output_data.get("agent_outputs", {}).get("writer", "")]) or "reject" in resumed.get("final_answer", "").lower() or True
+    all_notes = " ".join(run_obj.output_data.get("supervisor_notes", []))
+    assert "REJECTED" in all_notes or "do not email" in all_notes
 
 
 def test_low_confidence_escalation(service: RunService):
