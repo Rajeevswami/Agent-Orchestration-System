@@ -32,3 +32,6 @@ celerybeat-schedule*
 # Node (if React frontend is added later)
 node_modules/
 .next/
+
+# TypeScript build info
+*.tsbuildinfo
